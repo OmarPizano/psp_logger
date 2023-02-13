@@ -2,6 +2,7 @@
 
 import time
 import sys
+from colorama import Fore, Style
 
 FILENAME = "log.txt"
 
@@ -162,10 +163,18 @@ class Application:
         return info
 
     def __gen_prompt(self, activity_status, info, error, valid_options: list) -> str:
+        if activity_status == 'not_started':
+            activity_status = Fore.CYAN + activity_status + Style.RESET_ALL
+        elif activity_status == 'active':
+            activity_status = Fore.GREEN + activity_status + Style.RESET_ALL
+        elif activity_status == 'interrupted':
+            activity_status = Fore.RED + activity_status + Style.RESET_ALL
         msg = '\n[ {} ]'.format(activity_status)
         if info != False:
+            info = Fore.BLUE + info + Style.RESET_ALL
             msg += ' INFO: {}'.format(info)
         if error != False:
+            error = Fore.RED + error + Style.RESET_ALL
             if info != False:
                 msg += ' |'
             msg += ' ERROR: {}'.format(error)
