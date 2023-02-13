@@ -131,9 +131,9 @@ class Application:
             elif status == 'not_started':
                 valid_options.extend(['s', 'q'])
             elif status == 'active':
-                valid_options.extend(['i', 't'])
+                valid_options.extend(['i', 't', 'q'])
             elif status == 'interrupted':
-                valid_options.extend(['r']) 
+                valid_options.extend(['r', 'q']) 
             prompt = self.__gen_prompt(status, self.__info_msg, self.__error_msg, valid_options)
             command = input(prompt)
             self.__error_msg = False # limpiar el error msg luego de generar el prompt
