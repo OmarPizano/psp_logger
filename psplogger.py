@@ -70,7 +70,7 @@ class PspActivity:
     def stop(self):
         "Obtiene la fecha de terminación y actializa el tiempo delta."
         self.__end_date = time.time()
-        self.__delta_time = int(divmod(self.__end_date - self.__start_date, 60)[0] - self.__interrupted_min)
+        self.__delta_min = int(divmod(self.__end_date - self.__start_date, 60)[0] - self.__interrupted_min)
         self.__status = 'stopped'
         return MSG_STOP.format(self.get_end_date(), self.__delta_min, self.__interrupted_min)
     
