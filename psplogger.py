@@ -13,9 +13,9 @@ MSG_STOP = "Stopped activity ({}): {} min total delta, {} min total interrupted.
 
 class Interruption:
     def __init__(self):
-        self.__start_date = time.time()
+        self.__start_date = 0.0 
         self.__end_date = 0.0
-        self.__active = True
+        self.__active = False
     
     def get_start_date(self):
         return self.__start_date
@@ -26,26 +26,33 @@ class Interruption:
     def is_active(self):
         return self.__active
 
+    def start(self):
+        "Inicia la interrupción."
+        if not self.__active:
+            self.__start_date = time.time()
+            self.__end_date = 0.0
+            self.__active = True
+
     def end(self):
         "Termina la interrupción."
         if self.__active:
             self.__end_date = time.time()
             self.__active = False
 
-    def get_duration_min(self):
-        "Obtiene la duración de la interrupción en minutos."
+    def get_duration(self):
+        "Obtiene la duración (secs) de la interrupción."
         if self.__active:
             return False
-        return int(divmod(self.__end_date - self.__start_date, 60)[0])
+        return self.__end_date - self.__start_date
 
 class PspActivity:
     def __init__(self):
         self.__start_date = 0.0
         self.__end_date = 0.0
         self.__status = 'not_started' # not_started, active, interrupted, stopped
-        self.__interrupted_min = 0
-        self.__delta_min = 0
-        self.__interruptions = []
+        self.__interrupted_secs = 0.0
+        self.__delta_secs = 0.0
+        self.__last_interruption = Interruption()
 
     def start(self):
         "Registra la fecha de inicio y activa el status."
@@ -55,24 +62,27 @@ class PspActivity:
     
     def interrupt(self):
         "Agrega una interrupción y actualiza el delta para mostrarlo."
-        self.__interruptions.append(Interruption())
-        self.__delta_min = int(divmod(self.__interruptions[-1].get_start_date() - self.__start_date, 60)[0] - self.__interrupted_min)
+        self.__last_interruption.start()
+        self.__delta_secs = (self.__last_interruption.get_start_date() - self.__start_date) - self.__interrupted_secs
         self.__status = 'interrupted'
-        return MSG_INTERRUPT.format(self.__delta_min)
+        return MSG_INTERRUPT.format(self.__sec2min(self.__delta_secs))
 
     def resume(self):
         "Termina la última interrupción y actualiza el tiempo de interrupción total"
-        self.__interruptions[-1].end()
-        self.__interrupted_min = self.__interrupted_min + self.__interruptions[-1].get_duration_min()
+        self.__last_interruption.end()
+        self.__interrupted_secs = self.__interrupted_secs + self.__last_interruption.get_duration()
         self.__status = 'active'
-        return MSG_RESUME.format(self.__interruptions[-1].get_duration_min())
+        return MSG_RESUME.format(self.__sec2min(self.__last_interruption.get_duration()))
 
     def stop(self):
         "Obtiene la fecha de terminación y actializa el tiempo delta."
+        if self.__status == 'interrupted':
+            self.__last_interruption.end()
+            self.__interrupted_secs = self.__interrupted_secs + self.__last_interruption.get_duration() 
         self.__end_date = time.time()
-        self.__delta_min = int(divmod(self.__end_date - self.__start_date, 60)[0] - self.__interrupted_min)
+        self.__delta_secs = (self.__end_date - self.__start_date) - self.__interrupted_secs
         self.__status = 'stopped'
-        return MSG_STOP.format(self.get_end_date(), self.__delta_min, self.__interrupted_min)
+        return MSG_STOP.format(self.get_end_date(), self.__sec2min(self.__delta_secs), self.__sec2min(self.__interrupted_secs))
     
     def get_status(self):
         "not_started, active, interrupted, stopped"
@@ -90,15 +100,19 @@ class PspActivity:
             return False
         return self.__get_date(self.__end_date)
 
-    def get_interrupt_time(self):
-        return self.__interrupted_min
+    def get_interrupted_mins(self):
+        return self.__sec2min(self.__interrupted_secs)
 
-    def get_delta_time(self):
-        return self.__delta_min
+    def get_delta_mins(self):
+        return self.__sec2min(self.__delta_secs)
 
     def __get_date(self, date_in_secs: float) -> str:
         time_struct = time.localtime(date_in_secs)
-        return time.strftime("%Y/%m/%d %H:%M", time_struct)
+        return time.strftime("%Y/%m/%d %H:%M:%S", time_struct)
+
+    def __sec2min(self, secs) -> str:
+        minutes, seconds = divmod(secs, 60)
+        return round(minutes + seconds/60, 1)
 
 class ActivityLog:
     def __init__(self, program_name: str, phase_name: str, activity: PspActivity, comment: str):
@@ -107,9 +121,9 @@ class ActivityLog:
                 program_name,
                 phase_name,
                 activity.get_start_date(),
-                activity.get_interrupt_time(),
+                activity.get_interrupted_mins(),
                 activity.get_end_date(),
-                activity.get_delta_time(),
+                activity.get_delta_mins(),
                 comment))
 
 class Application:
@@ -133,7 +147,7 @@ class Application:
             elif status == 'active':
                 valid_options.extend(['i', 't', 'q'])
             elif status == 'interrupted':
-                valid_options.extend(['r', 'q']) 
+                valid_options.extend(['r', 't', 'q']) 
             prompt = self.__gen_prompt(status, self.__info_msg, self.__error_msg, valid_options)
             command = input(prompt)
             self.__error_msg = False # limpiar el error msg luego de generar el prompt
