@@ -2,7 +2,7 @@
 
 import time
 import sys
-from colorama import Fore, Style
+from colorama import Fore
 
 FILENAME = "log.txt"
 
@@ -140,6 +140,7 @@ class Application:
             status = activity.get_status()
             valid_options = []
             if status == 'stopped':
+                print(self.__gen_prompt(status, self.__info_msg, self.__error_msg, valid_options, True))
                 self.__save(activity)
                 break
             elif status == 'not_started':
@@ -176,22 +177,27 @@ class Application:
             exit(0)
         return info
 
-    def __gen_prompt(self, activity_status, info, error, valid_options: list) -> str:
+    def __gen_prompt(self, activity_status, info, error, valid_options: list, just_info = False) -> str:
         if activity_status == 'not_started':
-            activity_status = Fore.CYAN + activity_status + Style.RESET_ALL
+            activity_status = Fore.CYAN + activity_status + Fore.RESET
         elif activity_status == 'active':
-            activity_status = Fore.GREEN + activity_status + Style.RESET_ALL
+            activity_status = Fore.GREEN + activity_status + Fore.RESET
         elif activity_status == 'interrupted':
-            activity_status = Fore.RED + activity_status + Style.RESET_ALL
+            activity_status = Fore.RED + activity_status + Fore.RESET
+        elif activity_status == 'stopped':
+            activity_status = Fore.MAGENTA + activity_status + Fore.RESET
         msg = '\n[ {} ]'.format(activity_status)
         if info != False:
-            info = Fore.BLUE + info + Style.RESET_ALL
+            info = Fore.BLUE + info + Fore.RESET
             msg += ' INFO: {}'.format(info)
         if error != False:
-            error = Fore.RED + error + Style.RESET_ALL
+            error = Fore.RED + error + Fore.RESET
             if info != False:
                 msg += ' |'
             msg += ' ERROR: {}'.format(error)
+        if just_info:
+            msg += '\n'
+            return msg
         msg += '\n{}'.format(self.__gen_command_str(valid_options))
         msg += ' >> '
         return msg
