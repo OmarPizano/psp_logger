@@ -127,7 +127,7 @@ class ActivityLog:
     
     def write(self, filename: str):
         log = Fore.YELLOW + self.__log + Fore.RESET
-        print("New log: {}".format(log))
+        print("\nNew log: {}".format(log))
         with open(filename, "a") as logfile:
             logfile.write(self.__log)
 
@@ -165,9 +165,14 @@ class Application:
                 continue
 
     def __save(self, activity: PspActivity):
-        comment = input('[?] Write a short comment: ')
+        comment = self.__parse_comment(input('[?] Write a short comment: '))
         log = ActivityLog(self.__program_name, self.__phase_name, activity, comment)
         log.write(FILENAME)
+        
+    def __parse_comment(self, comment: str) -> str:
+        comment = comment[0:50]
+        comment = comment.replace(',','')
+        return comment
 
     def __execute_command(self, command: str, activity: PspActivity) -> str:
         info = ''
