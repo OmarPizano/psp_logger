@@ -116,7 +116,7 @@ class PspActivity:
 
 class ActivityLog:
     def __init__(self, program_name: str, phase_name: str, activity: PspActivity, comment: str):
-        self.__log = "{},{},{},{},{},{},{}\n".format(\
+        self.__log = "{}, {}, {}, {}, {}, {}, {}\n".format(\
                 program_name,
                 phase_name,
                 activity.get_start_date(),
