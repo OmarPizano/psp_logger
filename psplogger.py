@@ -108,7 +108,7 @@ class PspActivity:
 
     def __get_date(self, date_in_secs: float) -> str:
         time_struct = time.localtime(date_in_secs)
-        return time.strftime("%Y/%m/%d %H:%M:%S", time_struct)
+        return time.strftime("%Y/%m/%d_%H:%M:%S", time_struct)
 
     def __sec2min(self, secs) -> str:
         minutes, seconds = divmod(secs, 60)
