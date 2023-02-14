@@ -116,15 +116,20 @@ class PspActivity:
 
 class ActivityLog:
     def __init__(self, program_name: str, phase_name: str, activity: PspActivity, comment: str):
-        with open(FILENAME, "a") as logfile:
-            logfile.write("{},{},{},{},{},{},{}\n".format(\
+        self.__log = "{},{},{},{},{},{},{}\n".format(\
                 program_name,
                 phase_name,
                 activity.get_start_date(),
                 activity.get_interrupted_mins(),
                 activity.get_end_date(),
                 activity.get_delta_mins(),
-                comment))
+                comment)
+    
+    def write(self, filename: str):
+        log = Fore.YELLOW + self.__log + Fore.RESET
+        print("New log: {}".format(log))
+        with open(filename, "a") as logfile:
+            logfile.write(self.__log)
 
 class Application:
     def __init__(self):
@@ -161,7 +166,8 @@ class Application:
 
     def __save(self, activity: PspActivity):
         comment = input('[?] Write a short comment: ')
-        ActivityLog(self.__program_name, self.__phase_name, activity, comment)
+        log = ActivityLog(self.__program_name, self.__phase_name, activity, comment)
+        log.write(FILENAME)
 
     def __execute_command(self, command: str, activity: PspActivity) -> str:
         info = ''
