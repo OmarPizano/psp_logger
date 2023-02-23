@@ -4,49 +4,77 @@ import time
 import sys
 from colorama import Fore
 
-FILENAME = "log.txt"
-
-MSG_START = "Started activity ({})"
-MSG_INTERRUPT = "Interrupted activity: {} min current delta"
-MSG_RESUME = "Resumed activity: {} min interrupted."
-MSG_STOP = "Stopped activity ({}): {} min total delta, {} min total interrupted."
-
 class Interruption:
+    """
+    Esta clase se usa para generar una interrupción.
+    """
     def __init__(self):
+        """
+        Inicializa las fechas (inicio y fin) de la interrupción a 0.0 y
+        pone el estado en False.
+        """
         self.__start_date = 0.0 
         self.__end_date = 0.0
         self.__active = False
     
-    def get_start_date(self):
+    def get_start_date(self) -> float:
+        "Retorna la fecha (segundos desde EPOCH) de inicio de la interrupción."
         return self.__start_date
 
-    def get_end_date(self):
+    def get_end_date(self) -> float:
+        "Retorna la fecha (segundos desde EPOCH) de finalización de la interrupción."
         return self.__end_date
         
-    def is_active(self):
+    def is_active(self) -> bool:
+        "Retorna el estado de la interrupción (true/false)."
         return self.__active
 
     def start(self):
-        "Inicia la interrupción."
+        """
+        Inicia la interrupción tomando la fecha actual como la fecha de inicio.
+        Si la interrupción ya estaba activa, no hace nada.
+        """
         if not self.__active:
             self.__start_date = time.time()
             self.__end_date = 0.0
             self.__active = True
 
     def end(self):
-        "Termina la interrupción."
+        """
+        Termina la interrupción tomando la fecha actual como la fecha de finalización.
+        Si la interrupción no estaba activa, no hace nada.
+        """
         if self.__active:
             self.__end_date = time.time()
             self.__active = False
 
     def get_duration(self):
-        "Obtiene la duración (secs) de la interrupción."
+        """
+        Retorna la duración total de la interrupción restando las fechas de inicio
+        y fin.
+        Si la interrupción sigue activa, retorna False.
+        """
         if self.__active:
             return False
         return self.__end_date - self.__start_date
 
-class PspActivity:
+class PspStep:
+    """
+    Esta clase representa un step de una fase de cierto script del PSP.
+
+    Los posibles estados son: 'not_started', 'active', 'interrupted' y 'stopped.
+    """
+    INFO = {
+        "start": "Started step ({})",
+        "interrupt": "Interrupted step: {} min current delta",
+        "resume": "Resumed step: {} min interrupted.",
+        "stop": "Stopped step ({}): {} min total delta, {} min total interrupted."
+    }
     def __init__(self):
+        """
+        Inicializa el step.
+        El estado se pone en 'not_started'
+        """
         self.__start_date = 0.0
         self.__end_date = 0.0
         self.__status = 'not_started' # not_started, active, interrupted, stopped
@@ -55,77 +83,136 @@ class PspActivity:
         self.__last_interruption = Interruption()
 
     def start(self):
-        "Registra la fecha de inicio y activa el status."
+        """
+        Establece la fecha de inicio del step y el estado 'active'.
+        
+        Retorna información de la fecha de inicio.
+        """
         self.__start_date = time.time()
         self.__status = 'active'
-        return MSG_START.format(self.get_start_date())
+        return self.INFO['start'].format(self.get_start_date())
     
     def interrupt(self):
-        "Agrega una interrupción y actualiza el delta para mostrarlo."
+        """
+        Inicia la interrupción del step y pone el estado a 'interrupted'.
+
+        Retorna información del tiempo total delta transcurrido hasta la interrupción.
+        """
         self.__last_interruption.start()
         self.__delta_secs = (self.__last_interruption.get_start_date() - self.__start_date) - self.__interrupted_secs
         self.__status = 'interrupted'
-        return MSG_INTERRUPT.format(self.__sec2min(self.__delta_secs))
+        return self.INFO['interrupt'].format(self.__sec2min(self.__delta_secs))
 
     def resume(self):
-        "Termina la última interrupción y actualiza el tiempo de interrupción total"
+        """
+        Termina la interrupción del step y suma su duración al tiempo de interrupción total.
+        Pone el estado a 'active'.
+
+        Retorna información sobre el tiempo que duró la interrupción.
+        """
         self.__last_interruption.end()
         self.__interrupted_secs = self.__interrupted_secs + self.__last_interruption.get_duration()
         self.__status = 'active'
-        return MSG_RESUME.format(self.__sec2min(self.__last_interruption.get_duration()))
+        return self.INFO['resume'].format(self.__sec2min(self.__last_interruption.get_duration()))
 
     def stop(self):
-        "Obtiene la fecha de terminación y actializa el tiempo delta."
+        """
+        Establece la fecha de finalización del step y actualiza el tiempo total delta.
+        Para ello resta la interrupción total al tiempo transcurrido entre la fecha de inicio
+        y la fecha de finalización. Pone el estado a 'stopped'.
+
+        Retorna información sobre el delta total, interrupción total y la fecha de finalización.
+        """
         if self.__status == 'interrupted':
             self.__last_interruption.end()
             self.__interrupted_secs = self.__interrupted_secs + self.__last_interruption.get_duration() 
         self.__end_date = time.time()
         self.__delta_secs = (self.__end_date - self.__start_date) - self.__interrupted_secs
         self.__status = 'stopped'
-        return MSG_STOP.format(self.get_end_date(), self.__sec2min(self.__delta_secs), self.__sec2min(self.__interrupted_secs))
+        return self.INFO['stop'].format(self.get_end_date(), self.__sec2min(self.__delta_secs), self.__sec2min(self.__interrupted_secs))
     
     def get_status(self):
-        "not_started, active, interrupted, stopped"
+        """
+        Regresa alguno de los posibles estados:
+        - not_started
+        - active
+        - interrupted
+        - stopped
+        """
         return self.__status
 
     def get_start_date(self):
-        "Retorna la fecha de inicio formateada."
+        """
+        Retorna la fecha de inicio del step en formato YYYY/MM/DD_HH:MM:SS.
+
+        Si el step no ha sido iniciado, retorna False
+        """
         if self.__status == 'not_started':
             return False
         return self.__get_date(self.__start_date)
     
     def get_end_date(self):
-        "Retorna la fecha de terminación formateada."
+        """
+        Retorna la fecha de finalización del step en formato YYYY/MM/DD_HH:MM:SS.
+
+        Si el step no ha sido detenido, retorna False
+        """
         if self.__status != 'stopped':
             return False
         return self.__get_date(self.__end_date)
 
     def get_interrupted_mins(self):
+        """
+        Retorna el tiempo total de interrupción en minutos.
+
+        Se aplica un redondeo a 1 decimal.
+        """
         return self.__sec2min(self.__interrupted_secs)
 
     def get_delta_mins(self):
+        """
+        Retorna el tiempo total delta en minutos.
+        
+        Se aplica un redondeo a 1 decimal.
+        """
         return self.__sec2min(self.__delta_secs)
 
     def __get_date(self, date_in_secs: float) -> str:
+        """
+        Convierte la fecha en segundos a una fecha en formato string YYYY/MM/DD_HH:MM:SS.
+        """
         time_struct = time.localtime(date_in_secs)
         return time.strftime("%Y/%m/%d_%H:%M:%S", time_struct)
 
     def __sec2min(self, secs) -> str:
+        """
+        Convierte los segundos a minutos aplicando un redondeo de 1 decimal.
+        """
         minutes, seconds = divmod(secs, 60)
         return round(minutes + seconds/60, 1)
 
-class ActivityLog:
-    def __init__(self, program_name: str, phase_name: str, activity: PspActivity, comment: str):
+class StepLog:
+    """
+    Esta clase representa el archivo donde se va a registrar cada step.
+    """
+    def __init__(self, program_name: str, phase_name: str, step: PspStep, comment: str):
+        """
+        Inicializa el objeto con el nombre el programa, la fase y los datos de una actividad terminada.
+        """
         self.__log = "{}, {}, {}, {}, {}, {}, {}\n".format(\
                 program_name,
                 phase_name,
-                activity.get_start_date(),
-                activity.get_interrupted_mins(),
-                activity.get_end_date(),
-                activity.get_delta_mins(),
+                step.get_start_date(),
+                step.get_interrupted_mins(),
+                step.get_end_date(),
+                step.get_delta_mins(),
                 comment)
     
     def write(self, filename: str):
+        """
+        Agrega los datos del step en el archivo de registro indicado.
+        Si el archivo no existe, lo crea.
+        """
         log = Fore.YELLOW + self.__log + Fore.RESET
         print("\nNew log: {}".format(log))
         with open(filename, "a") as logfile:
@@ -133,6 +220,7 @@ class ActivityLog:
 
 class Application:
     def __init__(self):
+        self.__file_name = ''
         self.__program_name = ''
         self.__phase_name = ''
         self.__error_msg = False
@@ -140,13 +228,13 @@ class Application:
         self.__options = {'s':'(s)tart', 'i':'(i)nterrupt', 'r':'(r)esume', 't':'s(t)op', 'q': '(q)uit'}
 
     def run(self):
-        activity = PspActivity()
+        step = PspStep()
         while True:
-            status = activity.get_status()
+            status = step.get_status()
             valid_options = []
             if status == 'stopped':
                 print(self.__gen_prompt(status, self.__info_msg, self.__error_msg, valid_options, True))
-                self.__save(activity)
+                self.__save(step)
                 break
             elif status == 'not_started':
                 valid_options.extend(['s', 'q'])
@@ -159,31 +247,31 @@ class Application:
             self.__error_msg = False # limpiar el error msg luego de generar el prompt
             self.__info_msg = False # limpiar el info msg luego de generar el prompt
             if command in valid_options:
-                self.__info_msg = self.__execute_command(command, activity)
+                self.__info_msg = self.__execute_command(command, step)
             else:
                 self.__error_msg = 'Invalid command.'
                 continue
 
-    def __save(self, activity: PspActivity):
-        comment = self.__parse_comment(input('[?] Write a short comment: '))
-        log = ActivityLog(self.__program_name, self.__phase_name, activity, comment)
-        log.write(FILENAME)
+    def __save(self, step: PspStep):
+        comment = self.__parse_comment(input('[?] Step comment: '))
+        log = StepLog(self.__program_name, self.__phase_name, step, comment)
+        log.write(self.__file_name)
         
     def __parse_comment(self, comment: str) -> str:
         comment = comment[0:50]
         comment = comment.replace(',','')
         return comment
 
-    def __execute_command(self, command: str, activity: PspActivity) -> str:
+    def __execute_command(self, command: str, step: PspStep) -> str:
         info = ''
         if command == 's':
-            info = activity.start()
+            info = step.start()
         elif command == 'i':
-            info = activity.interrupt()
+            info = step.interrupt()
         elif command == 'r':
-            info = activity.resume()
+            info = step.resume()
         elif command == 't':
-            info = activity.stop()
+            info = step.stop()
         elif command == 'q':
             exit(0)
         return info
@@ -223,9 +311,10 @@ class Application:
 
 
     def valid_params(self, params) -> bool:
-        if len(params) == 3:
-            self.__program_name = params[1]
-            self.__phase_name = params[2]
+        if len(params) == 4:
+            self.__file_name = params[1]
+            self.__program_name = params[2]
+            self.__phase_name = params[3]
             return True
         else:
             self.__error_msg = '[ ERROR: Invalid parameters. ]'
@@ -235,7 +324,7 @@ class Application:
         return self.__error_msg
 
     def get_help(self):
-        return 'USAGE:\n\tpython psplogger.py [PROGRAM_NAME] [PHASE_NAME]\nEXAMPLE:\n\tpython psplogger.py PSP0_1 Planning.Step1\n'
+        return 'USAGE:\n\tpython psplogger.py [LOG_FILE] [PROGRAM_NAME] [PHASE_NAME]\nEXAMPLE:\n\tpython psplogger.py PSP0_1 Planning.Step1\n'
 
 # Main Sequence
 app = Application()
